@@ -46,6 +46,25 @@
 	.matrix-card-wrapper {
 		position: relative;
 	}
+	/* Button loading state styles */
+	.btn.loading {
+		opacity: 0.8;
+	}
+	.btn-spinner {
+		display: none;
+		width: 16px;
+		height: 16px;
+		margin-right: 6px;
+		vertical-align: -2px;
+	}
+	.btn.loading .btn-spinner {
+		display: inline-block;
+		animation: spinner 0.6s linear infinite;
+	}
+	@@keyframes spinner {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
 </style>
 
 <div class="container mt-4">
@@ -347,6 +366,28 @@
 </div>
 
 <script>
+
+	// Utility function to manage button loading state
+	function setButtonLoading(buttonId, isLoading) {
+		const button = document.getElementById(buttonId);
+		if (!button) return;
+
+		if (isLoading) {
+			button.disabled = true;
+			button.classList.add('loading');
+			// Store original text if not already stored
+			if (!button.dataset.originalText) {
+				button.dataset.originalText = button.innerHTML;
+			}
+			// Add spinner HTML
+			button.innerHTML = '<svg class="btn-spinner" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="31.4 31.4"/></svg>' + button.dataset.originalText;
+		} else {
+			button.disabled = false;
+			button.classList.remove('loading');
+			// Restore original text
+			button.innerHTML = button.dataset.originalText || button.innerHTML;
+		}
+	}
 
 	// Function to refresh the matrix display without page reload
 	// Intelligently handles color transitions based on original slot color
@@ -1367,6 +1408,10 @@
 			params.append('__RequestVerificationToken', token);
 
 			try {
+				// Show loading state on both buttons
+				setButtonLoading('modifyRecurringSyncAllBtn', true);
+				setButtonLoading('bookAnywayBtn', true);
+
 				const response = await fetch('?handler=BookMissingBookings', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1408,6 +1453,10 @@
 				console.error('Error:', error);
 				document.getElementById('modifyRecurringBookingAlert').style.display = 'block';
 				document.getElementById('modifyRecurringBookingErrors').innerHTML = error.message;
+			} finally {
+				// Always restore button state
+				setButtonLoading('modifyRecurringSyncAllBtn', false);
+				setButtonLoading('bookAnywayBtn', false);
 			}
 		}
 	});
@@ -1441,6 +1490,9 @@
 			params.append('__RequestVerificationToken', token);
 
 			try {
+				// Show loading state on delete button
+				setButtonLoading('modifyRecurringDeleteAllBtn', true);
+
 				const response = await fetch('?handler=DeleteAllBookings', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -1460,16 +1512,18 @@
 				} else {
 					document.getElementById('modifyRecurringBookingAlert').style.display = 'block';
 					document.getElementById('modifyRecurringBookingErrors').innerHTML = data.error || 'Failed to delete bookings';
-				}
-			} catch (error) {
-				console.error('Error:', error);
-				document.getElementById('modifyRecurringBookingAlert').style.display = 'block';
-				document.getElementById('modifyRecurringBookingErrors').innerHTML = error.message;
-			}
-		});
-	});
-
-</script>
+							}
+						} catch (error) {
+							console.error('Error:', error);
+							document.getElementById('modifyRecurringBookingAlert').style.display = 'block';
+							document.getElementById('modifyRecurringBookingErrors').innerHTML = error.message;
+						} finally {
+							// Always restore button state
+							setButtonLoading('modifyRecurringDeleteAllBtn', false);
+						}
+					});
+					});
+				</script>
 
 <!-- Recurring Booking Modal -->
 

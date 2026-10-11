@@ -76,6 +76,25 @@
 		/* Container for merged slots */
 		padding: 4px;
 	}
+	/* Button loading state styles */
+	.btn.loading {
+		opacity: 0.8;
+	}
+	.btn-spinner {
+		display: none;
+		width: 16px;
+		height: 16px;
+		margin-right: 6px;
+		vertical-align: -2px;
+	}
+	.btn.loading .btn-spinner {
+		display: inline-block;
+		animation: spinner 0.6s linear infinite;
+	}
+	@@keyframes spinner {
+		0% { transform: rotate(0deg); }
+		100% { transform: rotate(360deg); }
+	}
 </style>
 
 <div class="container mt-4">
@@ -427,6 +446,29 @@
 </div>
 
 <script>
+
+	// Utility function to manage button loading state
+	function setButtonLoading(buttonId, isLoading) {
+		const button = document.getElementById(buttonId);
+		if (!button) return;
+
+		if (isLoading) {
+			button.disabled = true;
+			button.classList.add('loading');
+			// Store original text if not already stored
+			if (!button.dataset.originalText) {
+				button.dataset.originalText = button.innerHTML;
+			}
+			// Add spinner HTML
+			button.innerHTML = '<svg class="btn-spinner" viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="31.4 31.4"/></svg>' + button.dataset.originalText;
+		} else {
+			button.disabled = false;
+			button.classList.remove('loading');
+			// Restore original text
+			button.innerHTML = button.dataset.originalText || button.innerHTML;
+		}
+	}
+
 // Store booking details globally
 let globalBookingData = {
 	roomId: null,
@@ -665,8 +707,8 @@ document.addEventListener('DOMContentLoaded', function() {
 		const roomId = globalBookingData.roomId;
 		const bookingDate = globalBookingData.bookingDate;
 
-		// Disable submit button during submission
-		document.getElementById('submitBookingBtn').disabled = true;
+		// Show loading state on submit button
+		setButtonLoading('submitBookingBtn', true);
 
 		// Get antiforgery token
 		const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
@@ -730,14 +772,14 @@ document.addEventListener('DOMContentLoaded', function() {
 				// Show error message in modal
 				document.getElementById('modalBookingAlert').style.display = 'block';
 				document.getElementById('modalBookingErrors').innerHTML = `<div>${data.error}</div>`;
-				document.getElementById('submitBookingBtn').disabled = false;
+				setButtonLoading('submitBookingBtn', false);
 			}
 		})
 		.catch(error => {
 			console.error('Error:', error);
 			document.getElementById('modalBookingAlert').style.display = 'block';
 			document.getElementById('modalBookingErrors').innerHTML = `<div>${error.message}</div>`;
-			document.getElementById('submitBookingBtn').disabled = false;
+			setButtonLoading('submitBookingBtn', false);
 		});
 	});
 
@@ -1529,8 +1571,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 		document.getElementById('modifyModalTimeValidationError').style.display = 'none';
 
-		// Disable submit button during submission
-		this.disabled = true;
+		// Show loading state on submit button
+		setButtonLoading('submitModifyBookingBtn', true);
 
 		try {
 			// Get antiforgery token
@@ -1566,23 +1608,21 @@ document.addEventListener('DOMContentLoaded', function() {
 				modifyModal.hide();
 
 				// Update calendar immediately 
-                updateSlotAfterModify( roomId, bookingDate, oldStartTime, oldEndTime, startTime, endTime, bookingId );
+				updateSlotAfterModify( roomId, bookingDate, oldStartTime, oldEndTime, startTime, endTime, bookingId );
 
 				// Show success message
 				showSuccessBanner(globalModifyBookingData.roomName, bookingDate, startTime, endTime, 'Booking Updated');
-
-				this.disabled = false;
 			} else {
 				// Show error message in modal
 				document.getElementById('modifyBookingAlert').style.display = 'block';
 				document.getElementById('modifyBookingErrors').innerHTML = `<div>${data.error}</div>`;
-				this.disabled = false;
+				setButtonLoading('submitModifyBookingBtn', false);
 			}
 		} catch (error) {
 			console.error('Error:', error);
 			document.getElementById('modifyBookingAlert').style.display = 'block';
 			document.getElementById('modifyBookingErrors').innerHTML = `<div>${error.message}</div>`;
-			this.disabled = false;
+			setButtonLoading('submitModifyBookingBtn', false);
 		}
 	});
 
@@ -1593,7 +1633,9 @@ document.addEventListener('DOMContentLoaded', function() {
 		const bookingDate = globalModifyBookingData.bookingDate;
 		const startTime = globalModifyBookingData.startTime;
 		const endTime = globalModifyBookingData.endTime;
-		this.disabled = true;
+
+		// Show loading state on delete button
+		setButtonLoading('deleteModifyBookingBtn', true);
 
 		try {
 			// Get antiforgery token
@@ -1621,7 +1663,7 @@ document.addEventListener('DOMContentLoaded', function() {
 				modifyModal.hide();
 
 				// Update calendar immediately
-                updateSlotAfterDelete( roomId, bookingDate, startTime, endTime );
+				updateSlotAfterDelete( roomId, bookingDate, startTime, endTime );
 
 				// Show success message
 				const banner = document.createElement('div');
@@ -1645,19 +1687,35 @@ document.addEventListener('DOMContentLoaded', function() {
 					banner.remove();
 				}, 5000);
 
-				this.disabled = false;
 			} else {
 				// Show error message in modal
 				document.getElementById('modifyBookingAlert').style.display = 'block';
 				document.getElementById('modifyBookingErrors').innerHTML = `<div>${data.error}</div>`;
-				this.disabled = false;
-			}
-		} catch (error) {
-			console.error('Error:', error);
-			document.getElementById('modifyBookingAlert').style.display = 'block';
-			document.getElementById('modifyBookingErrors').innerHTML = `<div>${error.message}</div>`;
-			this.disabled = false;
-		}
-	});
-});
-</script>
+				setButtonLoading('deleteModifyBookingBtn', false);
+					}
+				} catch (error) {
+					console.error('Error:', error);
+					document.getElementById('modifyBookingAlert').style.display = 'block';
+					document.getElementById('modifyBookingErrors').innerHTML = `<div>${error.message}</div>`;
+					setButtonLoading('deleteModifyBookingBtn', false);
+				}
+				});
+
+				// Reset button loading states when booking modal is hidden
+				const bookingModal = document.getElementById('bookingModal');
+				if (bookingModal) {
+					bookingModal.addEventListener('hidden.bs.modal', function() {
+						setButtonLoading('submitBookingBtn', false);
+					});
+				}
+
+				// Reset button loading states when modify booking modal is hidden
+				const modifyBookingModal = document.getElementById('modifyBookingModal');
+				if (modifyBookingModal) {
+					modifyBookingModal.addEventListener('hidden.bs.modal', function() {
+						setButtonLoading('submitModifyBookingBtn', false);
+						setButtonLoading('deleteModifyBookingBtn', false);
+					});
+				}
+			});
+			</script>
