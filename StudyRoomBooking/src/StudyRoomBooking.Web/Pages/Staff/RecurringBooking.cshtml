@@ -104,34 +104,6 @@
 					</div>
 				</div>
 			</div>
-		@* 	<div class="col-md-3">
-				<div class="form-group">
-					<label for="startTime" class="form-label">Start Hour</label>
-					<select id="startTime" name="searchCriteria.StartTime" class="form-select">
-						<option value="" selected="@(!Model.SearchCriteria.StartTime.HasValue)">--:--</option>
-						@for (int hour = 8; hour <= 21; hour++)
-						{
-							<option value="@hour:00" selected="@(Model.SearchCriteria.StartTime.HasValue && Model.SearchCriteria.StartTime.Value.Hours == hour)">@hour:00</option>
-						}
-					</select>
-				</div>
-			</div>
-			<div class="col-md-3">
-				<div class="form-group">
-					<label for="endTime" class="form-label">End Hour</label>
-					<select id="endTime" name="searchCriteria.EndTime" class="form-select">
-						<option value="" selected="@(!Model.SearchCriteria.EndTime.HasValue)">--:--</option>
-						@for (int hour = 9; hour <= 22; hour++)
-						{
-							<option value="@hour:00" selected="@(Model.SearchCriteria.EndTime.HasValue && Model.SearchCriteria.EndTime.Value.Hours == hour)">@hour:00</option>
-						}
-					</select>
-					<div id="timeValidationError" class="time-validation-error">Start hour must be before end hour.</div>
-				</div>
-			</div>
-		</div>
-
-		<div class="row"> *@
 			<div style="width: 25%;">
 				<div class="form-group">
 					<label for="roomType" class="form-label">Room Type</label>
@@ -332,7 +304,18 @@
 												else
 												{
 													<!-- Red: Booked -->
-													<span class="badge calendar-slot calendar-slot-booked"> </span>
+														<span class="badge calendar-slot calendar-slot-booked"
+															  data-room-id="@room.Id"
+															  data-time-slot="@(startHour.ToString().PadLeft(2, '0')):00"
+															  data-start-date="@Model.SearchCriteria.StartDate.ToString("yyyy-MM-dd")"
+															  data-start-time="@(startHour.ToString().PadLeft(2, '0')):00"
+															  data-end-time="@(endHour.ToString().PadLeft(2, '0')):00"
+															  data-recurrence-end-date="@Model.SearchCriteria.RecurrenceEndDate.ToString("yyyy-MM-dd")"
+															  data-recurrence-pattern="@Model.SearchCriteria.RecurrencePattern"
+															  data-room-name="@room.Name"
+															  data-room-code="@room.Code"
+															  data-room-location="@room.Location"
+															  data-room-capacity="@room.Capacity"> </span>
 												}
 											}
 											else
@@ -374,6 +357,8 @@
 			const recurrenceDatesJson = document.getElementById('modifyRecurringRecurrenceDatesJson').value;
 			const startTime = document.getElementById('modifyRecurringStartTime').value;
 			const endTime = document.getElementById('modifyRecurringEndTime').value;
+			const recurrenceEndDate = document.getElementById('modifyRecurringRecurrenceEndDate').value;
+			const recurrencePattern = document.getElementById('modifyRecurringRecurrencePattern').value;
 
 			// Parse recurrence dates if available
 			let recurrenceDates = [];
@@ -387,6 +372,12 @@
 			}
 
 			console.log('Updating slots for room:', roomId, 'times:', startTime, '-', endTime, 'status:', status, 'dates:', recurrenceDates);
+
+			// Validate time values before parsing
+			if (!startTime || !endTime || typeof startTime !== 'string' || typeof endTime !== 'string') {
+				console.error('Invalid time values provided to refreshMatrixDisplay:', {startTime, endTime});
+				throw new Error('Invalid time values: startTime and endTime must be valid time strings in HH:mm format');
+			}
 
 			// Update each slot that was booked/deleted
 			const startHour = parseInt(startTime.split(':')[0]);
@@ -503,49 +494,28 @@
 								cell.appendChild(newSpan);
 							}
 						} else if (newStatus === 'Mixed') {
-							// Slot is mixed (red + blue)
-							button.classList.add('calendar-slot-booked', 'calendar-slot-booked-mixed');
-							button.style.backgroundColor = '#dc3545'; // Red (visible part)
-							button.style.background = 'linear-gradient(135deg, #dc3545 50%, #2563EB 50%)'; // Red+Blue gradient
-							button.style.cursor = 'pointer'; // Make clickable
-							button.style.pointerEvents = 'auto'; // Enable pointer events
+							// Mixed slot (red + blue): always recreate the span
+							const newSpan = document.createElement('span');
 
-							// Copy data attributes to button if converting from another element
-							if (button.tagName === 'BUTTON') {
-								// Button already has the data attributes from when it was created
-								// Just update the styles
-								button.style.cursor = 'pointer';
-								button.style.position = 'relative';
-								button.style.background = 'linear-gradient(135deg, #dc3545 50%, #2563EB 50%)';
-								button.style.pointerEvents = 'auto'; // Enable pointer events
+							newSpan.className =
+								'badge calendar-slot calendar-slot-booked calendar-slot-booked-mixed';
 
-								// Convert button to span
-								const newSpan = document.createElement('span');
-								newSpan.className = 'badge calendar-slot calendar-slot-booked calendar-slot-booked-mixed';
-								newSpan.style.cursor = 'pointer';
-								newSpan.style.position = 'relative';
-								newSpan.style.background = 'linear-gradient(135deg, #dc3545 50%, #2563EB 50%)';
-								newSpan.style.backgroundColor = '#dc3545';
-								newSpan.style.pointerEvents = 'auto'; // Enable pointer events - CRITICAL for clickability
+							newSpan.style.position = 'relative';
+							newSpan.style.background =
+								'linear-gradient(135deg, #dc3545 50%, #2563EB 50%)';
+							newSpan.style.backgroundColor = '#dc3545';
+							newSpan.style.cursor = 'pointer';
+							newSpan.style.pointerEvents = 'auto';
 
-								// Copy ALL attributes from button to span - especially data attributes
-								Array.from(button.attributes).forEach(attr => {
-									if (attr.name.startsWith('data-') || attr.name === 'style') {
-										if (attr.name !== 'style') { // Skip style since we're setting inline
-											newSpan.setAttribute(attr.name, attr.value);
-										}
-									}
-								});
+							// Preserve all data attributes from the original slot
+							Array.from(button.attributes).forEach(attr => {
+								if (attr.name.startsWith('data-')) {
+									newSpan.setAttribute(attr.name, attr.value);
+								}
+							});
 
-								// Ensure all required data attributes are present
-								if (!newSpan.getAttribute('data-room-id')) newSpan.setAttribute('data-room-id', roomId);
-								if (!newSpan.getAttribute('data-time-slot')) newSpan.setAttribute('data-time-slot', timeSlotStr);
-								if (!newSpan.getAttribute('data-start-time')) newSpan.setAttribute('data-start-time', `${String(startHour).padStart(2, '0')}:00`);
-								if (!newSpan.getAttribute('data-end-time')) newSpan.setAttribute('data-end-time', `${String(startHour + 1).padStart(2, '0')}:00`);
-
-								cell.innerHTML = '';
-								cell.appendChild(newSpan);
-							}
+							cell.innerHTML = '';
+							cell.appendChild(newSpan);
 						} else {
 							// Slot is your booking (blue)
 							button.classList.add('calendar-slot-booked-self');
@@ -928,6 +898,14 @@
 			const endTime = mixedSlot.getAttribute('data-end-time');
 			const recurrenceEndDate = mixedSlot.getAttribute('data-recurrence-end-date');
 			const recurrencePattern = mixedSlot.getAttribute('data-recurrence-pattern');
+
+			// Validate all required data attributes exist
+			if (!roomId || !startDate || !startTime || !endTime || !recurrenceEndDate || !recurrencePattern) {
+				console.error('Mixed slot missing required data attributes:', {roomId, startDate, startTime, endTime, recurrenceEndDate, recurrencePattern});
+				alert('Error: Mixed slot data is incomplete. Please reload the page and try again.');
+				return;
+			}
+
 			const roomDetails = {
 				Name: mixedSlot.getAttribute('data-room-name'),
 				Code: mixedSlot.getAttribute('data-room-code'),
@@ -944,6 +922,13 @@
 	// Function to open modify recurring booking modal
 	async function openModifyRecurringBookingModal(roomId, startDate, startTime, endTime, recurrenceEndDate, recurrencePattern, roomDetails) {
 		try {
+			// Validate required parameters before proceeding
+			if (!startTime || !endTime || typeof startTime !== 'string' || typeof endTime !== 'string') {
+				console.error('Invalid time values in openModifyRecurringBookingModal:', {startTime, endTime});
+				alert('Error: Invalid time data. Please reload the page and try again.');
+				return;
+			}
+
 			// Populate room and date details
 			document.getElementById('modifyRecurringModalRoomNameDetail').textContent = roomDetails.Name;
 			document.getElementById('modifyRecurringModalRoomCode').textContent = roomDetails.Code;
@@ -978,6 +963,7 @@
 			document.getElementById('modifyRecurringRoomId').value = roomId;
 			document.getElementById('modifyRecurringStartDate').value = startDate;
 			document.getElementById('modifyRecurringRecurrenceEndDate').value = recurrenceEndDate;
+			document.getElementById('modifyRecurringRecurrencePattern').value = recurrencePattern;
 
 			// Populate time dropdowns
 			const startTimeHour = parseInt(startTime.split(':')[0]);
@@ -1249,6 +1235,13 @@
 		startTimeSelect?.addEventListener('change', async function() {
 			// Get the selected start hour and update end time dropdown
 			const selectedStartTime = this.value;
+
+			// Validate that selectedStartTime is not empty
+			if (!selectedStartTime || typeof selectedStartTime !== 'string') {
+				console.error('Invalid start time selected:', selectedStartTime);
+				return;
+			}
+
 			const startHour = parseInt(selectedStartTime.split(':')[0]);
 
 			// Populate end time dropdown with only 2 options: start hour + 1 and start hour + 2
@@ -1554,6 +1547,7 @@
 				<input type="hidden" id="modifyRecurringRoomId">
 				<input type="hidden" id="modifyRecurringStartDate">
 				<input type="hidden" id="modifyRecurringRecurrenceEndDate">
+				<input type="hidden" id="modifyRecurringRecurrencePattern">
 				<input type="hidden" id="modifyRecurringRecurrenceDatesJson">
 			</div>
 
