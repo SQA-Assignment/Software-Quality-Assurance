@@ -100,6 +100,94 @@ Non-Requirements Traceability Matrix
 # V. Test Automation and Quality Engineering
 
 # VI. Continuous Integration and DevOps QA
+# 6. Continuous Integration and DevOps QA
+
+## 6.1. Development and integration workflow
+
+The team uses a feature-branch workflow on GitHub after learning about the CI/CD lecture. From now on, each member develops on a separate branch and commits small, clearly described changes. When a change is ready, the member opens a pull request into main. The main branch is protected (Code Review): direct pushes are blocked, and a pull request can only be merged when the automated checks pass and at least one teammate has approved it.
+
+The flow is:
+
+1. Create a branch from main for a feature or fix
+2. Commit locally and run `dotnet build` and `dotnet test` before pushing
+3. Push the branch and open a pull request
+4. GitHub Actions runs the CI workflow automatically
+5. A teammate reviews the code and the CI result, then approves or requests changes
+6. After approval and a green build, the pull request is merged into main. CI runs again on the merged code
+
+CI is appropriate because the project is a small .NET application with an automated MSTest suite and a shared repository, so frequent integration reduces merge problems and catches faults early. Continuous deployment was not implemented because the prototype is only run in demonstration and testing sessions, so there is no production environment to deploy to.
+
+## 6.2. CI implementation
+
+The workflow is defined in `.github/workflows/ci.yml`. It runs on every push and pull request to main and uses read-only repository permissions. It has two jobs.
+
+**Job 1: Restore, build and test.** This job checks out the code, installs .NET 8, restores packages, builds the solution in Release mode, runs a basic lint check, runs all automated tests with code coverage, and checks the coverage against a minimum. Test results and coverage reports are saved as an artefact after every run.
+
+**Job 2: Smoke test.** This job only runs if Job 1 passes. It starts the web application and sends HTTP requests until the app responds, for up to about 90 seconds. The application connects to the database using a connection string stored as a GitHub repository secret, so no credentials appear in the code or logs. If the secret is missing or the app does not respond, the job fails and prints the application log.
+
+## 6.3. Quality gates
+
+**Quality Gates table**
+
+| Gate | Check | Purpose | Related Requirement |
+|---|---|---|---|
+| 1. Build | Solution restores and compiles in Release mode | Prevents broken code reaching main | All |
+| 2. Linting | `dotnet format analyzers` report no errors | Catches code quality problems automatically | NFR5 Maintainability |
+| 3. Automated tests | All 20 MSTests pass (12 automated tests and 8 manual tests) | Protects rules such as duplicate-booking prevention | FR2, FR3, NFR2 |
+| 4. Coverage threshold | Line coverage of at least 30% | Ensures a minimum amount of code is tested | NFR2, NFR5 |
+| 5. Smoke test | App starts and responds with the real database connection | Confirms the system runs, not only compiles | NFR7 Availability |
+| 6. Code Review | At least one approving review before merge (Code Review) | Catches logic and design problems automation cannot | All |
+
+If any gate fails, the pull request cannot be merged until the problem is fixed. The coverage threshold is low (30%) because the project is a prototype. The team plans to raise it as more tests are added. The lint check only reports analyzer errors, so it is a basic check and does not enforce full code style.
+
+## 6.4. Smoke and sanity testing
+
+**Smoke testing.** The smoke test is automated in CI. It does not test business rules. It checks only that the application starts, connects to its configuration, and responds. HTTP 200 means the page loaded, and 302 means the app redirected the request, for example, to a login page. Both show the app is running. This catches faults that unit tests cannot find, such as missing configuration, a broken start-up, or a failed database connection.
+
+**Sanity testing.** Sanity testing is done manually after a small fix. Instead of running every test again, the team re-checks only the affected behaviour and its neighbours. For example, after a change to the double-booking rule, the team re-runs the related test cases (TC-03 and TC-04) and then tries one booking in the interface.
+
+**Evidence.**
+
+Both tests pass screenshot
+
+![Both jobs pass](images/ci-both-jobs-pass.png)
+
+Check code coverage threshold screenshot
+
+![Coverage threshold check](images/ci-coverage-threshold.png)
+
+Run automated test screenshot
+
+![Automated tests run](images/ci-automated-tests.png)
+
+Code Review ruleset setup screenshots
+
+![Ruleset setup 1](images/ruleset-setup-1.png)
+
+![Ruleset setup 2](images/ruleset-setup-2.png)
+
+![Ruleset setup 3](images/ruleset-setup-3.png)
+
+A failed run screenshot
+
+![Failed CI run](images/ci-failed-run.png)
+
+Create pull request test screenshot
+
+![Pull request created](images/pr-created.png)
+
+Approved pull request by one reviewer screenshot
+
+![Pull request approved](images/pr-approved.png)
+
+## 6.5. Limitations and future improvements
+
+- The pipeline does not deploy the application because the prototype is only used for demonstrations.
+- The coverage threshold is low, and the lint check is basic. Both could be made stricter.
+- The smoke test uses a real external database (Supabase), so it can fail if that service is down, even when the code is correct. A separate test database would be safer.
+- Repository secrets are not available to pull requests from forks, which is acceptable for a three-person team.
+- UI, email, recurring-booking and language-switching tests remain manual.
+- The smoke test checks only the home page, not full booking flows.
 
 # VII. Defect Management and Root Cause Analysis
 
