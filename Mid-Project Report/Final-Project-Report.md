@@ -242,5 +242,81 @@ For each item, we compared the suggestion with the requirements and existing arc
 **Professional practice.** AI is a useful assistant, but the developer is responsible for the result. Good practice is to review every suggestion, keep secrets out of code, record where AI was used, and verify with tests and a second person's review.
 
 # XI. Quality Improvement and Future Recommendations
+## 11.1. Main quality lessons learned
+
+**Regression testing matters most after architectural change.** Migrating from in-memory repositories to a database was the riskiest change in the project. Rerunning the original booking tests, plus TC-20 for double-booking prevention, showed that the core rules still held. Without a repeatable test suite, this check would have been slow and easy to skip.
+
+**Automated and manual testing find different problems.** The 12 automated tests covered repeatable logic such as booking, access control and performance. The 8 manual tests found issues that automation could not, such as the English word "Free" being read as "no cost" in Vietnamese (DEF-02). A passing automated test shows the logic is correct, but not that users understand the interface.
+
+**Unit tests do not show the whole system works.** All unit tests could pass while the application still failed to start because of configuration or database connection problems (DEF-03). The CI smoke test closed part of this gap.
+
+**Test environments differ from real ones.** The performance and automated tests used an isolated in-memory SQLite database, and the manual performance test ran on localhost. Both are useful but cannot fully represent the real database or a deployed system.
+
+**Requirements need testable wording and honest coverage.** Rewriting vague requirements into measurable ones (for example "within 2 seconds for 50 reservations") made testing possible. The traceability matrix also showed gaps clearly: FR12 was deferred, NFR6 keyboard navigation had no test, and NFR5 and NFR7 had no discrete test case.
+
+**Quality practices need to be adopted early.** The CI workflow and pull request review were set up late in the project, and earlier changes went straight to main. Starting these from the first sprint would have caught problems sooner and given a stronger record of the work.
+
+## 11.2. Recommended improvements to the development and QA process
+
+| Area | Current situation | Recommendation |
+|---|---|---|
+| Workflow | Pull requests and review were adopted late. This happened due to the project requirements | Use feature branches, pull requests and review from the first sprint, with a pull request template and checklist |
+| Defect tracking | Defects were described in the report, not tracked as they happened | Log every defect as a GitHub Issue with severity, priority and linked pull request, so the register is built from real records |
+| Requirements | Some NFRs have no direct test (NFR5, NFR7) | Define measurable checks for each NFR when requirements are written, for example a maintainability metric and an uptime check |
+| Test planning | Manual tests were designed late | Design test cases alongside requirements, and add acceptance tests before implementation |
+| Reviews | One approving review is required | Add a review checklist covering validation, security, and wording of user-facing text |
+
+## 11.3. Future improvements
+
+### Testing
+
+- Run the automated tests against the same database engine as the application, using a test database or containers, instead of in-memory SQLite.
+- Add concurrency tests for booking, since two students booking the same slot at once is the main reliability risk.
+- Add end-to-end browser tests for the main flows: search, book, modify, cancel.
+- Add the missing test for keyboard navigation (NFR6).
+
+### Automation and CI/CD
+
+- Raise the coverage threshold from 30% in steps as tests are added, for example to 60% and then 70%.
+- Strengthen the lint step to a full `dotnet format` style check, not only analyzer errors.
+- Use a separate test database for the smoke test, so a Supabase outage or data change cannot cause a false failure.
+- Extend the smoke test to check a login and a booking, not only the home page.
+- Add automatic deployment to a staging environment once the system is hosted.
+
+### Monitoring
+
+- Add application logging and health checks, and track errors and response times after deployment, so quality is measured after release as well as before it.
+- Measure real search performance and concurrent-user load once deployed, as noted in Section 8.
+
+### Security
+
+- Test the threats the current tests do not cover: direct requests to admin actions, session tampering, input validation (such as SQL injection) and weak passwords.
+- Add dependency vulnerability scanning and secret scanning to the pipeline.
+- Do a security review before real students use the system.
+
+### Usability and accessibility
+
+- Test usability with more first-time users than the current limited group.
+- Check accessibility properly: keyboard navigation, screen reader support, colour contrast.
+- Have native speakers review all translated text and keep a glossary of key terms such as "Available" and "Booked".
+
+### Maintainability
+
+- Keep booking rules in one service, and keep the modular structure under review.
+- Add static analysis and code quality measures, and document the architecture and how to run the tests.
+
+### Feature completion
+
+- Complete FR12 (utilisation reports) with its own test cases, and confirm real email delivery with a monitored mailbox or a mail testing service.
+
+## 11.4. Evolving toward continuous quality engineering
+
+The project already has the start of a quality pipeline: automated tests, CI gates, a smoke test, code review, and a defect and root cause process. A stronger practice would build on it in stages:
+
+1. **Short term:** make the existing gates stricter (coverage, linting), track defects as issues, and use pull requests for every change.
+2. **Medium term:** test against the real database engine, add browser-level end-to-end tests, and add security scanning to the pipeline.
+3. **Longer term:** deploy to a staging environment automatically, monitor the live system, and use that data (errors, response times, user feedback) to decide what to test and fix next.
+
+The main change is moving from checking quality at the end to building it into every change. Each pull request would be built, tested and scanned automatically, reviewed by a person, and judged against measurable thresholds that the team raises over time.
 
 # XII. Team Contribution and Professional Reflection
