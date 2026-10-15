@@ -196,6 +196,50 @@ Approved pull request by one reviewer screenshot
 # IX. Quality Metrics and Final Release Decision
 
 # X. AI-Assisted Development and Critical Reflection
+## 10.1. How GitHub Copilot tool was used
+
+GitHub Copilot was used as an assistant for implementation ideas, debugging, test-case design, CI configuration, and UI refinement. We reviewed the generated suggestions against the requirements and existing code before accepting or modifying them.
+
+| Area (date, commits) | How GitHub Copilot helped | What we did | Evidence |
+|---|---|---|---|
+| Database and authentication (18 Sep 2026, commit 07b2cb9) | Copilot helped connect the app to Supabase, replace in-memory persistence with Entity Framework repositories, add the database context and unit of work, configure authentication and create the schema | Checked the connection and startup behaviour, and kept the connection string out of source control | `schema.sql`; `StudyRoomBookingDbContext.cs`; `EfRepositories.cs`; `Program.cs` |
+| Forgot-password UI (26 Sep 2026, commits 7575c56, 529149f, 52ae4fa, 3e2ebe2, and d69591e) | Copilot helped add the entry point and turn the first alert into a styled modal with clearer text | Checked the modal and the responsive login layout before accepting | `Login.cshtml` |
+| MSTest case creation and realistic test data (test-case work recorded in the repository history) | Copilot helped turn requirements into test scenarios and edge cases (invalid dates, conflicts, eligibility, cancellation, history) | Checked each expected result against the service behaviour and used isolated test data so tests don't affect each other | `BookingServiceTests.cs`; `StudyRoomBooking.Tests.csproj` |
+| CI quality gates (9 October 2026, commits ad0cd0a, c180585, 649079a, b6511b4, 5d2673e, and 5a5d806) | Copilot helped build and debug the GitHub Actions workflow: restore and build, lint, tests with coverage, a 30% threshold, a smoke test | Added the Supabase secret check, passed the connection string through the repository secret after the first smoke test failed, retried, and confirmed the successful run | `ci.yml`; successful CI run evidence |
+| User-secret and CI configuration guidance (included in the database and CI work) | Copilot identified the configuration shape: `ConnectionStrings:Supabase` through user-secrets or `SUPABASE_CONNECTION_STRING`, mapped in CI to `ConnectionStrings__Supabase` | Confirmed the app reports the missing key clearly, with no secret in code or report | `Program.cs`; `ci.yml` |
+
+## 10.2. How we reviewed AI output
+
+For each item, we compared the suggestion with the requirements and existing architecture, read the affected services, pages, tests and configuration, changed the code to match the project's naming and structure, and ran the tests or CI. We recorded failures and configuration gaps instead of assuming the output was right.
+
+**Accepted, modified and rejected**
+
+| Outcome | Example |
+|---|---|
+| Accepted with changes | Copilot's test scenarios, after we corrected expected results to match the real service rules. The CI workflow, after we added the secret check, a lint step and the coverage threshold |
+| Modified | The first forgot-password alert, which became a modal after several rounds of edits to the title, close button and help text |
+| Rejected or reworked | A suggestion that put the connection string in a config file, or a test that used the real database. |
+
+## 10.3. Quality risks found in AI-assisted output
+
+- **Insecure handling of credentials.** The main risk was a connection string ending up in source control or logs. We kept it in user-secrets locally and a repository secret in CI.
+- **Unsuitable assumptions about the environment.** The first CI smoke test failed because the app needed a database connection that the workflow did not provide. The generated workflow assumed the app could start with no external configuration (DEF-03).
+- **Design that was not tested with real users.** The original layout was AI-generated and spread features across many pages. We combined Search with Bookings, and My Bookings with History, to reduce steps.
+- **Weak or misleading evidence.** Passing tests only prove the tested behaviour. The tests use in-memory SQLite, the lint check only reports analyzer errors, and coverage is held at 30%, so passing CI does not mean the code is fully tested or secure.
+- **Wording without context.** The English "Free" read as "no cost" in Vietnamese. A native speaker only found this in manual testing (DEF-02).
+- **Outdated or wrong API usage.** An AI-suggested test method (`Assert.ThrowsException`) did not compile with MSTest 4, which uses `ThrowsExactly`. This showed the suggestion matched older library versions.
+
+## 10.4. Reflection
+
+**Productivity.** AI saved time on repetitive and unfamiliar work, such as test scaffolding, the EF repository setup and the workflow YAML. A first version came quickly, but fixing it took longer than we expected. The smoke test needed several commits to get right.
+
+**Learning.** We learned more when we had to find out why a suggestion failed, such as the secret not reaching the smoke test, than when it worked the first time. Reviewing the output meant we had to understand authentication, repositories, CI jobs and coverage, so we could explain them in the viva.
+
+**Testing.** AI was good at suggesting edge cases we might have missed, but it could not decide what the correct behaviour was. That came from the requirements. Automation caught logic errors, and manual testing caught usability and language problems.
+
+**Software quality.** AI-generated code often worked for the main path but did not consider configuration, security and real-world conditions. Quality gates (tests, lint, coverage, smoke test, review) were what made the output trustworthy, not the AI itself.
+
+**Professional practice.** AI is a useful assistant, but the developer is responsible for the result. Good practice is to review every suggestion, keep secrets out of code, record where AI was used, and verify with tests and a second person's review.
 
 # XI. Quality Improvement and Future Recommendations
 
