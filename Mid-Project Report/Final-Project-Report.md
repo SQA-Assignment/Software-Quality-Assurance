@@ -95,3 +95,228 @@ Non-Requirements Traceability Matrix
 - NFR5 and NFR7 — No discrete test case
 => NFR5 (Maintainability) is supported by the architectural decision to migrate from in-memory repositories to a database (Section 1.3), rather than verified through a specific automated test. NFR7 (Availability) will be confirmed through observation during demonstration and testing sessions rather than a standalone test case, as uptime is not something a unit or integration test can meaningfully simulate for this prototype.
 
+# IV. Test Execution and Final Test Results
+
+# V. Test Automation and Quality Engineering
+
+# VI. Continuous Integration and DevOps QA
+# 6. Continuous Integration and DevOps QA
+
+## 6.1. Development and integration workflow
+
+The team uses a feature-branch workflow on GitHub after learning about the CI/CD lecture. From now on, each member develops on a separate branch and commits small, clearly described changes. When a change is ready, the member opens a pull request into main. The main branch is protected (Code Review): direct pushes are blocked, and a pull request can only be merged when the automated checks pass and at least one teammate has approved it.
+
+The flow is:
+
+1. Create a branch from main for a feature or fix
+2. Commit locally and run `dotnet build` and `dotnet test` before pushing
+3. Push the branch and open a pull request
+4. GitHub Actions runs the CI workflow automatically
+5. A teammate reviews the code and the CI result, then approves or requests changes
+6. After approval and a green build, the pull request is merged into main. CI runs again on the merged code
+
+CI is appropriate because the project is a small .NET application with an automated MSTest suite and a shared repository, so frequent integration reduces merge problems and catches faults early. Continuous deployment was not implemented because the prototype is only run in demonstration and testing sessions, so there is no production environment to deploy to.
+
+## 6.2. CI implementation
+
+The workflow is defined in `.github/workflows/ci.yml`. It runs on every push and pull request to main and uses read-only repository permissions. It has two jobs.
+
+**Job 1: Restore, build and test.** This job checks out the code, installs .NET 8, restores packages, builds the solution in Release mode, runs a basic lint check, runs all automated tests with code coverage, and checks the coverage against a minimum. Test results and coverage reports are saved as an artefact after every run.
+
+**Job 2: Smoke test.** This job only runs if Job 1 passes. It starts the web application and sends HTTP requests until the app responds, for up to about 90 seconds. The application connects to the database using a connection string stored as a GitHub repository secret, so no credentials appear in the code or logs. If the secret is missing or the app does not respond, the job fails and prints the application log.
+
+## 6.3. Quality gates
+
+**Quality Gates table**
+
+| Gate | Check | Purpose | Related Requirement |
+|---|---|---|---|
+| 1. Build | Solution restores and compiles in Release mode | Prevents broken code reaching main | All |
+| 2. Linting | `dotnet format analyzers` report no errors | Catches code quality problems automatically | NFR5 Maintainability |
+| 3. Automated tests | All 20 MSTests pass (12 automated tests and 8 manual tests) | Protects rules such as duplicate-booking prevention | FR2, FR3, NFR2 |
+| 4. Coverage threshold | Line coverage of at least 30% | Ensures a minimum amount of code is tested | NFR2, NFR5 |
+| 5. Smoke test | App starts and responds with the real database connection | Confirms the system runs, not only compiles | NFR7 Availability |
+| 6. Code Review | At least one approving review before merge (Code Review) | Catches logic and design problems automation cannot | All |
+
+If any gate fails, the pull request cannot be merged until the problem is fixed. The coverage threshold is low (30%) because the project is a prototype. The team plans to raise it as more tests are added. The lint check only reports analyzer errors, so it is a basic check and does not enforce full code style.
+
+## 6.4. Smoke and sanity testing
+
+**Smoke testing.** The smoke test is automated in CI. It does not test business rules. It checks only that the application starts, connects to its configuration, and responds. HTTP 200 means the page loaded, and 302 means the app redirected the request, for example, to a login page. Both show the app is running. This catches faults that unit tests cannot find, such as missing configuration, a broken start-up, or a failed database connection.
+
+**Sanity testing.** Sanity testing is done manually after a small fix. Instead of running every test again, the team re-checks only the affected behaviour and its neighbours. For example, after a change to the double-booking rule, the team re-runs the related test cases (TC-03 and TC-04) and then tries one booking in the interface.
+
+**Evidence.**
+
+Both tests pass screenshot
+
+![Both jobs pass](images/ci-both-jobs-pass.png)
+
+Check code coverage threshold screenshot
+
+![Coverage threshold check](images/ci-coverage-threshold.png)
+
+Run automated test screenshot
+
+![Automated tests run](images/ci-automated-tests.png)
+
+Code Review ruleset setup screenshots
+
+![Ruleset setup 1](images/ruleset-setup-1.png)
+
+![Ruleset setup 2](images/ruleset-setup-2.png)
+
+![Ruleset setup 3](images/ruleset-setup-3.png)
+
+A failed run screenshot
+
+![Failed CI run](images/ci-failed-run.png)
+
+Create pull request test screenshot
+
+![Pull request created](images/pr-created.png)
+
+Approved pull request by one reviewer screenshot
+
+![Pull request approved](images/pr-approved.png)
+
+## 6.5. Limitations and future improvements
+
+- The pipeline does not deploy the application because the prototype is only used for demonstrations.
+- The coverage threshold is low, and the lint check is basic. Both could be made stricter.
+- The smoke test uses a real external database (Supabase), so it can fail if that service is down, even when the code is correct. A separate test database would be safer.
+- Repository secrets are not available to pull requests from forks, which is acceptable for a three-person team.
+- UI, email, recurring-booking and language-switching tests remain manual.
+- The smoke test checks only the home page, not full booking flows.
+
+# VII. Defect Management and Root Cause Analysis
+
+# VIII. Quality Testing
+
+# IX. Quality Metrics and Final Release Decision
+
+# X. AI-Assisted Development and Critical Reflection
+## 10.1. How GitHub Copilot tool was used
+
+GitHub Copilot was used as an assistant for implementation ideas, debugging, test-case design, CI configuration, and UI refinement. We reviewed the generated suggestions against the requirements and existing code before accepting or modifying them.
+
+| Area (date, commits) | How GitHub Copilot helped | What we did | Evidence |
+|---|---|---|---|
+| Database and authentication (18 Sep 2026, commit 07b2cb9) | Copilot helped connect the app to Supabase, replace in-memory persistence with Entity Framework repositories, add the database context and unit of work, configure authentication and create the schema | Checked the connection and startup behaviour, and kept the connection string out of source control | `schema.sql`; `StudyRoomBookingDbContext.cs`; `EfRepositories.cs`; `Program.cs` |
+| Forgot-password UI (26 Sep 2026, commits 7575c56, 529149f, 52ae4fa, 3e2ebe2, and d69591e) | Copilot helped add the entry point and turn the first alert into a styled modal with clearer text | Checked the modal and the responsive login layout before accepting | `Login.cshtml` |
+| MSTest case creation and realistic test data (test-case work recorded in the repository history) | Copilot helped turn requirements into test scenarios and edge cases (invalid dates, conflicts, eligibility, cancellation, history) | Checked each expected result against the service behaviour and used isolated test data so tests don't affect each other | `BookingServiceTests.cs`; `StudyRoomBooking.Tests.csproj` |
+| CI quality gates (9 October 2026, commits ad0cd0a, c180585, 649079a, b6511b4, 5d2673e, and 5a5d806) | Copilot helped build and debug the GitHub Actions workflow: restore and build, lint, tests with coverage, a 30% threshold, a smoke test | Added the Supabase secret check, passed the connection string through the repository secret after the first smoke test failed, retried, and confirmed the successful run | `ci.yml`; successful CI run evidence |
+| User-secret and CI configuration guidance (included in the database and CI work) | Copilot identified the configuration shape: `ConnectionStrings:Supabase` through user-secrets or `SUPABASE_CONNECTION_STRING`, mapped in CI to `ConnectionStrings__Supabase` | Confirmed the app reports the missing key clearly, with no secret in code or report | `Program.cs`; `ci.yml` |
+
+## 10.2. How we reviewed AI output
+
+For each item, we compared the suggestion with the requirements and existing architecture, read the affected services, pages, tests and configuration, changed the code to match the project's naming and structure, and ran the tests or CI. We recorded failures and configuration gaps instead of assuming the output was right.
+
+**Accepted, modified and rejected**
+
+| Outcome | Example |
+|---|---|
+| Accepted with changes | Copilot's test scenarios, after we corrected expected results to match the real service rules. The CI workflow, after we added the secret check, a lint step and the coverage threshold |
+| Modified | The first forgot-password alert, which became a modal after several rounds of edits to the title, close button and help text |
+| Rejected or reworked | A suggestion that put the connection string in a config file, or a test that used the real database. |
+
+## 10.3. Quality risks found in AI-assisted output
+
+- **Insecure handling of credentials.** The main risk was a connection string ending up in source control or logs. We kept it in user-secrets locally and a repository secret in CI.
+- **Unsuitable assumptions about the environment.** The first CI smoke test failed because the app needed a database connection that the workflow did not provide. The generated workflow assumed the app could start with no external configuration (DEF-03).
+- **Design that was not tested with real users.** The original layout was AI-generated and spread features across many pages. We combined Search with Bookings, and My Bookings with History, to reduce steps.
+- **Weak or misleading evidence.** Passing tests only prove the tested behaviour. The tests use in-memory SQLite, the lint check only reports analyzer errors, and coverage is held at 30%, so passing CI does not mean the code is fully tested or secure.
+- **Wording without context.** The English "Free" read as "no cost" in Vietnamese. A native speaker only found this in manual testing (DEF-02).
+- **Outdated or wrong API usage.** An AI-suggested test method (`Assert.ThrowsException`) did not compile with MSTest 4, which uses `ThrowsExactly`. This showed the suggestion matched older library versions.
+
+## 10.4. Reflection
+
+**Productivity.** AI saved time on repetitive and unfamiliar work, such as test scaffolding, the EF repository setup and the workflow YAML. A first version came quickly, but fixing it took longer than we expected. The smoke test needed several commits to get right.
+
+**Learning.** We learned more when we had to find out why a suggestion failed, such as the secret not reaching the smoke test, than when it worked the first time. Reviewing the output meant we had to understand authentication, repositories, CI jobs and coverage, so we could explain them in the viva.
+
+**Testing.** AI was good at suggesting edge cases we might have missed, but it could not decide what the correct behaviour was. That came from the requirements. Automation caught logic errors, and manual testing caught usability and language problems.
+
+**Software quality.** AI-generated code often worked for the main path but did not consider configuration, security and real-world conditions. Quality gates (tests, lint, coverage, smoke test, review) were what made the output trustworthy, not the AI itself.
+
+**Professional practice.** AI is a useful assistant, but the developer is responsible for the result. Good practice is to review every suggestion, keep secrets out of code, record where AI was used, and verify with tests and a second person's review.
+
+# XI. Quality Improvement and Future Recommendations
+## 11.1. Main quality lessons learned
+
+**Regression testing matters most after architectural change.** Migrating from in-memory repositories to a database was the riskiest change in the project. Rerunning the original booking tests, plus TC-20 for double-booking prevention, showed that the core rules still held. Without a repeatable test suite, this check would have been slow and easy to skip.
+
+**Automated and manual testing find different problems.** The 12 automated tests covered repeatable logic such as booking, access control and performance. The 8 manual tests found issues that automation could not, such as the English word "Free" being read as "no cost" in Vietnamese (DEF-02). A passing automated test shows the logic is correct, but not that users understand the interface.
+
+**Unit tests do not show the whole system works.** All unit tests could pass while the application still failed to start because of configuration or database connection problems (DEF-03). The CI smoke test closed part of this gap.
+
+**Test environments differ from real ones.** The performance and automated tests used an isolated in-memory SQLite database, and the manual performance test ran on localhost. Both are useful but cannot fully represent the real database or a deployed system.
+
+**Requirements need testable wording and honest coverage.** Rewriting vague requirements into measurable ones (for example "within 2 seconds for 50 reservations") made testing possible. The traceability matrix also showed gaps clearly: FR12 was deferred, NFR6 keyboard navigation had no test, and NFR5 and NFR7 had no discrete test case.
+
+**Quality practices need to be adopted early.** The CI workflow and pull request review were set up late in the project, and earlier changes went straight to main. Starting these from the first sprint would have caught problems sooner and given a stronger record of the work.
+
+## 11.2. Recommended improvements to the development and QA process
+
+| Area | Current situation | Recommendation |
+|---|---|---|
+| Workflow | Pull requests and review were adopted late. This happened due to the project requirements | Use feature branches, pull requests and review from the first sprint, with a pull request template and checklist |
+| Defect tracking | Defects were described in the report, not tracked as they happened | Log every defect as a GitHub Issue with severity, priority and linked pull request, so the register is built from real records |
+| Requirements | Some NFRs have no direct test (NFR5, NFR7) | Define measurable checks for each NFR when requirements are written, for example a maintainability metric and an uptime check |
+| Test planning | Manual tests were designed late | Design test cases alongside requirements, and add acceptance tests before implementation |
+| Reviews | One approving review is required | Add a review checklist covering validation, security, and wording of user-facing text |
+
+## 11.3. Future improvements
+
+### Testing
+
+- Run the automated tests against the same database engine as the application, using a test database or containers, instead of in-memory SQLite.
+- Add concurrency tests for booking, since two students booking the same slot at once is the main reliability risk.
+- Add end-to-end browser tests for the main flows: search, book, modify, cancel.
+- Add the missing test for keyboard navigation (NFR6).
+
+### Automation and CI/CD
+
+- Raise the coverage threshold from 30% in steps as tests are added, for example to 60% and then 70%.
+- Strengthen the lint step to a full `dotnet format` style check, not only analyzer errors.
+- Use a separate test database for the smoke test, so a Supabase outage or data change cannot cause a false failure.
+- Extend the smoke test to check a login and a booking, not only the home page.
+- Add automatic deployment to a staging environment once the system is hosted.
+
+### Monitoring
+
+- Add application logging and health checks, and track errors and response times after deployment, so quality is measured after release as well as before it.
+- Measure real search performance and concurrent-user load once deployed, as noted in Section 8.
+
+### Security
+
+- Test the threats the current tests do not cover: direct requests to admin actions, session tampering, input validation (such as SQL injection) and weak passwords.
+- Add dependency vulnerability scanning and secret scanning to the pipeline.
+- Do a security review before real students use the system.
+
+### Usability and accessibility
+
+- Test usability with more first-time users than the current limited group.
+- Check accessibility properly: keyboard navigation, screen reader support, colour contrast.
+- Have native speakers review all translated text and keep a glossary of key terms such as "Available" and "Booked".
+
+### Maintainability
+
+- Keep booking rules in one service, and keep the modular structure under review.
+- Add static analysis and code quality measures, and document the architecture and how to run the tests.
+
+### Feature completion
+
+- Complete FR12 (utilisation reports) with its own test cases, and confirm real email delivery with a monitored mailbox or a mail testing service.
+
+## 11.4. Evolving toward continuous quality engineering
+
+The project already has the start of a quality pipeline: automated tests, CI gates, a smoke test, code review, and a defect and root cause process. A stronger practice would build on it in stages:
+
+1. **Short term:** make the existing gates stricter (coverage, linting), track defects as issues, and use pull requests for every change.
+2. **Medium term:** test against the real database engine, add browser-level end-to-end tests, and add security scanning to the pipeline.
+3. **Longer term:** deploy to a staging environment automatically, monitor the live system, and use that data (errors, response times, user feedback) to decide what to test and fix next.
+
+The main change is moving from checking quality at the end to building it into every change. Each pull request would be built, tested and scanned automatically, reviewed by a person, and judged against measurable thresholds that the team raises over time.
+
+# XII. Team Contribution and Professional Reflection
