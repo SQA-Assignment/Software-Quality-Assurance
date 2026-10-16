@@ -744,29 +744,25 @@ public class RecurringBookingModel : PageModel
                 }
             }
 
-            if (userBooking == null)
-            {
-                // Additional debug: count individual bookings
-                var individualBookings = allRoomBookings
-                    .Where(b => b.UserId == userId && b.RecurrencePattern == RecurrencePattern.None)
-                    .Count();
+            // If no existing booking or series was found, initialise a new series.
+            // This is a virtual booking only; it is NOT saved to the database.
+            bool isNewSeries = userBooking == null;
 
-                return new JsonResult(new { 
-                    success = false, 
-                    error = "Booking not found. Your recurring booking must have a recurrence pattern (Daily, Weekly, etc.) and an end date.",
-                    debug = new {
-                        searchedRoomId = roomId,
-                        searchedUserId = userId,
-                        searchStartDate = searchStartDate,
-                        searchEndDate = searchEndDate,
-                        bookingsFoundCount = allRoomBookings.Count(),
-                        userBookingsCount = allRoomBookings.Count(b => b.UserId == userId),
-                        isRecurringCount = allRoomBookings.Count(b => b.UserId == userId && b.RecurrencePattern != RecurrencePattern.None),
-                        individualBookingsCount = individualBookings
-                    }
-                })
+            if (isNewSeries)
+            {
+                userBooking = new Booking
                 {
-                    StatusCode = StatusCodes.Status404NotFound
+                    Id = 0,
+                    RoomId = roomId,
+                    UserId = userId,
+                    BookingDate = startDateObj.Date,
+                    StartTime = newStart,
+                    EndTime = newEnd,
+                    RecurrencePattern = requestedPattern,
+                    RecurrenceEndDate = requestedPattern == RecurrencePattern.None
+                        ? null
+                        : endDateObj.Date,
+                    Status = BookingStatus.Confirmed
                 };
             }
 
@@ -1020,6 +1016,7 @@ public class RecurringBookingModel : PageModel
             return new JsonResult(new
             {
                 success = true,
+                isNewSeries = isNewSeries,
                 booking = new
                 {
                     id = userBooking.Id,
