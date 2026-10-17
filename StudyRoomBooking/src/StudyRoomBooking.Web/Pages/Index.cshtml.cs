@@ -146,29 +146,23 @@ public class IndexModel : PageModel
     /// </summary>
     public bool IsTimeSlotInSearchRange(TimeSpan timeSlot)
     {
-        bool isStartSet = SearchCriteria.StartTime.HasValue;
-        bool isEndSet = SearchCriteria.EndTime.HasValue;
+        if (SearchCriteria.StartTime is TimeSpan startTime &&
+            SearchCriteria.EndTime is TimeSpan endTime)
+        {
+            return timeSlot >= startTime && timeSlot < endTime;
+        }
 
-        if (!isStartSet && !isEndSet)
+        if (SearchCriteria.StartTime is TimeSpan start)
         {
-            // Neither set - show all time slots
-            return true;
+            return timeSlot >= start;
         }
-        else if (isStartSet && !isEndSet)
+
+        if (SearchCriteria.EndTime is TimeSpan end)
         {
-            // Only start is set - show from start to 22:00
-            return timeSlot >= SearchCriteria.StartTime.Value;
+            return timeSlot < end;
         }
-        else if (!isStartSet && isEndSet)
-        {
-            // Only end is set - show from 8:00 to end
-            return timeSlot < SearchCriteria.EndTime.Value;
-        }
-        else
-        {
-            // Both set - show from start to end
-            return timeSlot >= SearchCriteria.StartTime.Value && timeSlot < SearchCriteria.EndTime.Value;
-        }
+
+        return true;
     }
 
     /// <summary>
@@ -904,4 +898,3 @@ public class IndexModel : PageModel
         }
     }
 }
-

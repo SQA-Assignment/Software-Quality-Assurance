@@ -94,7 +94,8 @@ public class BookingService : IBookingService
             throw new ArgumentException("The specified student does not exist.", nameof(booking));
         }
 
-        booking.ConfirmationNumber = Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
+        var confirmationNumber = Guid.NewGuid().ToString("N").Substring(0, 10).ToUpper();
+        booking.ConfirmationNumber = confirmationNumber;
         booking.Status = BookingStatus.Confirmed;
         booking.BookingDate = DateTime.SpecifyKind(booking.BookingDate.Date, DateTimeKind.Utc);
         booking.CreatedAt = DateTime.UtcNow;
@@ -104,13 +105,13 @@ public class BookingService : IBookingService
 
         // Send confirmation notification asynchronously WITHOUT blocking the response
         // This allows the user to see the confirmation immediately
-        _ = SendBookingConfirmationNotificationAsync(booking);
+        _ = SendBookingConfirmationNotificationAsync(booking, confirmationNumber);
 
         return booking;
     }
 
     // Send notification in the background without blocking
-    private async Task SendBookingConfirmationNotificationAsync(Booking booking)
+    private async Task SendBookingConfirmationNotificationAsync(Booking booking, string confirmationNumber)
     {
         try
         {
@@ -125,7 +126,7 @@ public class BookingService : IBookingService
                     booking.BookingDate,
                     booking.StartTime,
                     booking.EndTime,
-                    booking.ConfirmationNumber
+                    confirmationNumber
                 );
             }
         }

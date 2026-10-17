@@ -149,29 +149,23 @@ public class RecurringBookingModel : PageModel
     /// </summary>
     public bool IsTimeSlotInSearchRange(TimeSpan timeSlot)
     {
-        bool isStartSet = SearchCriteria.StartTime.HasValue;
-        bool isEndSet = SearchCriteria.EndTime.HasValue;
+        if (SearchCriteria.StartTime is TimeSpan startTime &&
+            SearchCriteria.EndTime is TimeSpan endTime)
+        {
+            return timeSlot >= startTime && timeSlot < endTime;
+        }
 
-        if (!isStartSet && !isEndSet)
+        if (SearchCriteria.StartTime is TimeSpan start)
         {
-            // Neither set - show all time slots
-            return true;
+            return timeSlot >= start;
         }
-        else if (isStartSet && !isEndSet)
+
+        if (SearchCriteria.EndTime is TimeSpan end)
         {
-            // Only start is set - show from start to 22:00
-            return timeSlot >= SearchCriteria.StartTime.Value;
+            return timeSlot < end;
         }
-        else if (!isStartSet && isEndSet)
-        {
-            // Only end is set - show from 8:00 to end
-            return timeSlot < SearchCriteria.EndTime.Value;
-        }
-        else
-        {
-            // Both set - show from start to end
-            return timeSlot >= SearchCriteria.StartTime.Value && timeSlot < SearchCriteria.EndTime.Value;
-        }
+
+        return true;
     }
 
     /// <summary>
@@ -1611,7 +1605,24 @@ public class RecurringBookingModel : PageModel
                         }
 
                         // Create the booking
-                        var user = await _userService.GetUserByUserIdAsync(HttpContext.Session.GetString("CurrentUser"));
+                        var currentUser = HttpContext.Session.GetString("CurrentUser");
+                        if (string.IsNullOrEmpty(currentUser))
+                        {
+                            return new JsonResult(new { success = false, error = "User session expired. Please login again." })
+                            {
+                                StatusCode = StatusCodes.Status401Unauthorized
+                            };
+                        }
+
+                        var user = await _userService.GetUserByUserIdAsync(currentUser);
+                        if (user == null)
+                        {
+                            return new JsonResult(new { success = false, error = "User not found." })
+                            {
+                                StatusCode = StatusCodes.Status404NotFound
+                            };
+                        }
+
                         var newBooking = new Booking
                         {
                             RoomId = originalBooking.RoomId,
@@ -1978,7 +1989,24 @@ public class RecurringBookingModel : PageModel
                     }
 
                     // Create the booking
-                    var user = await _userService.GetUserByUserIdAsync(HttpContext.Session.GetString("CurrentUser"));
+                    var currentUser = HttpContext.Session.GetString("CurrentUser");
+                    if (string.IsNullOrEmpty(currentUser))
+                    {
+                        return new JsonResult(new { success = false, error = "User session expired. Please login again." })
+                        {
+                            StatusCode = StatusCodes.Status401Unauthorized
+                        };
+                    }
+
+                    var user = await _userService.GetUserByUserIdAsync(currentUser);
+                    if (user == null)
+                    {
+                        return new JsonResult(new { success = false, error = "User not found." })
+                        {
+                            StatusCode = StatusCodes.Status404NotFound
+                        };
+                    }
+
                     var newBooking = new Booking
                     {
                         RoomId = roomId,
