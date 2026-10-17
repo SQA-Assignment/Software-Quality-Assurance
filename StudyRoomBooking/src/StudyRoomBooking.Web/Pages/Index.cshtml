@@ -262,8 +262,6 @@
 										var bookedSlot = bookingsForRoom.FirstOrDefault(b => 
 											!(b.EndTime <= timeSlot || b.StartTime >= nextTime) && 
 											b.Status != StudyRoomBooking.Domain.Enums.BookingStatus.Cancelled);
-										var isBooked = bookedSlot != null;
-										var isOwnBooking = isBooked && bookedSlot.UserId == Model.CurrentUserId;
 										var isInSearchRange = Model.IsTimeSlotInSearchRange(timeSlot);
 										var isInPast = Model.IsTimeSlotInPast(timeSlot);
 										var startHour = timeSlot.Hours;
@@ -272,9 +270,9 @@
 										<td style="padding: 4px;">
 											@if (isInSearchRange && !isInPast)
 											{
-												@if (isBooked)
+												@if (bookedSlot is not null)
 												{
-													@if (isOwnBooking)
+													@if (bookedSlot.UserId == Model.CurrentUserId)
 													{
 														<a asp-page="/Students/ModifyBooking" asp-route-id="@bookedSlot.Id" class="badge calendar-slot calendar-slot-booked-self" data-booking-id="@bookedSlot.Id" style="text-decoration: none; cursor: pointer;"></a>
 													}
