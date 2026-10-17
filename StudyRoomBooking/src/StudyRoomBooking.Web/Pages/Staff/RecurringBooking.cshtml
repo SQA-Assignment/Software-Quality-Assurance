@@ -1091,6 +1091,17 @@
 			deleteBtn.style.cursor = 'wait';
 			deleteBtn.title = 'Loading booking details...';
 
+			// Reset previous room/series data.
+			document.getElementById('modifyRecurringBookingId').value = '';
+			document.getElementById('modifyRecurringRecurrenceDatesJson').value = '[]';
+
+			document.getElementById('modifyRecurringDatesList').innerHTML = '';
+
+			const alertElement = document.getElementById('modifyRecurringBookingAlert');
+			alertElement.style.display = 'none';
+
+			document.getElementById('modifyRecurringBookingErrors').innerHTML = '';
+
 			console.log('refreshModifyRecurringBookingStatuses called with:', {roomId, startDate, recurrenceEndDate, recurrencePattern, defaultStartTime, defaultEndTime});
 
 			// Get time values from dropdowns with better error handling
@@ -1139,23 +1150,27 @@
 			});
 
 			console.log('Response status:', response.status, response.ok);
-
-			if (!response.ok) {
-				const errorText = await response.text();
-				console.error('Error response:', errorText);
-				throw new Error(errorText || 'Failed to fetch booking details');
-			}
-
 			const data = await response.json();
+
+			console.log('Response status:', response.status, response.ok);
 			console.log('Response data:', data);
 
-			if (!data.success) {
+			if (!response.ok || !data.success) {
 				throw new Error(data.error || 'Failed to fetch booking details');
 			}
 
-			// Store booking ID for later use
-			document.getElementById('modifyRecurringBookingId').value = data.booking.id;
-			console.log('Booking ID set to:', data.booking.id);
+			// True when the backend created a virtual booking for an empty series.
+			const isNewSeries = data.isNewSeries === true;
+
+			// Virtual booking ID is 0. Store an empty value instead.
+			document.getElementById('modifyRecurringBookingId').value =
+				isNewSeries ? '' : data.booking.id;
+
+			console.log('Is new series:', isNewSeries);
+			console.log(
+				'Booking ID set to:',
+				document.getElementById('modifyRecurringBookingId').value
+			);
 
 			// Populate dates list with status
 			const datesList = document.getElementById('modifyRecurringDatesList');
@@ -1229,21 +1244,23 @@
 			}
 
 			// Disable delete button when there are no existing bookings to delete
-			const hasAnyExistingBooking = data.dateStatuses.some(ds => ds.status === 'existing' || ds.status === 'missing hour');
+			const hasAnyExistingBooking = data.dateStatuses.some(
+    ds => ds.status === 'existing' || ds.status === 'missing hour'
+);
 
-			if (!hasAnyExistingBooking) {
-				// All dates are missing - disable the delete button
-				deleteBtn.disabled = true;
-				deleteBtn.style.opacity = '0.5';
-				deleteBtn.style.cursor = 'not-allowed';
-				deleteBtn.title = 'No existing bookings to delete';
-			} else {
-				// There are existing bookings - enable the delete button
-				deleteBtn.disabled = false;
-				deleteBtn.style.opacity = '1';
-				deleteBtn.style.cursor = 'pointer';
-				deleteBtn.title = '';
-			}
+if (isNewSeries || !hasAnyExistingBooking) {
+    deleteBtn.disabled = true;
+    deleteBtn.style.opacity = '0.5';
+    deleteBtn.style.cursor = 'not-allowed';
+    deleteBtn.title = isNewSeries
+        ? 'No existing booking series to delete'
+        : 'No existing bookings to delete';
+} else {
+    deleteBtn.disabled = false;
+    deleteBtn.style.opacity = '1';
+    deleteBtn.style.cursor = 'pointer';
+    deleteBtn.title = '';
+}
 
 			console.log('Populated dates list with', datesList.children.length, 'items');
 
