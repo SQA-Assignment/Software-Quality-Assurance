@@ -95,30 +95,43 @@ Nothing in `Domain` or `Application` depends on `Infrastructure` or `Web`, so th
 
 ## Running it
 
-Requires the .NET 8 or 10 SDK and a Supabase database connection string. Never commit the connection string to the repository.
+Requires the .NET 8 SDK and a Supabase database connection string. The connection string is not included in this submission. It will be provided separately through a comment in the Canvas assignment.
 
 ```bash
-# 1. Provide the connection string (user-secrets, run once)
-dotnet user-secrets set "ConnectionStrings:Supabase" "<your-connection-string>" --project src/StudyRoomBooking.Web
+# 1. From the extracted repository root, save the connection string locally.
+# Replace <connection-string-received-securely> with the value provided privately.
+dotnet user-secrets set \
+  "ConnectionStrings:Supabase" \
+  "<connection-string-received-securely>" \
+  --project StudyRoomBooking/src/StudyRoomBooking.Web
 
-# Alternatively, set the environment variable SUPABASE_CONNECTION_STRING
+# The value must use Npgsql format:
+# Host=...;Port=5432;Database=postgres;Username=...;Password=...;SSL Mode=Require;Trust Server Certificate=true
 
-# 2. Run the GUI - ensure you are in the StudyRoomBooking directory first
-dotnet run --project src/StudyRoomBooking.Web
+# 2. Run the GUI
+dotnet run --project StudyRoomBooking/src/StudyRoomBooking.Web
 
 # 3. Then open in your browser
 http://localhost:5176
 
 # Run the test suite (uses in-memory SQLite, so no connection string is needed)
-dotnet test
+dotnet test StudyRoomBooking/StudyRoomBooking.slnx
 ```
+
+The user secret is stored on the local computer outside the project folder. Do not place the real connection string in the ZIP, README, `appsettings.json`, `.env`, or source code.
 
 The database schema is in `schema.sql`.
 
 ## Demo accounts
 
+The demonstration user email addresses and passwords are not included in this submission. They will be provided separately to the teaching staff through a comment in the Canvas assignment, together with the temporary database connection string.
+
+Use the supplied accounts to demonstrate the relevant role-based workflows:
+
 | Role | Email | Password |
 |---|---|---|
-| Student | `student1@university.edu` | `student1abc` |
-| Staff | `staff@university.edu` | `staffabc` |
-| Admin | `admin@university.edu` | `adminabc` |
+| Student | Provided privately | Provided privately |
+| Staff | Provided privately | Provided privately |
+| Admin | Provided privately | Provided privately |
+
+These are assessment-only demonstration accounts. Do not commit their passwords to the repository or include them in the ZIP file.
